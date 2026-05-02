@@ -1,0 +1,21 @@
+# Angular Commit Message Convention
+# 
+# Format: <type>(<scope>): <subject>
+# 
+# Types:
+#   feat    - New feature
+#   fix     - Bug fix
+#   docs    - Documentation changes
+#   style   - Code style changes (no functional change)
+#   refactor- Code refactoring
+#   test    - Adding or modifying tests
+#   chore   - Build or tooling changes
+#   perf    - Performance improvements
+#   ci      - CI configuration changes
+#   build   - Build system changes
+#   revert  - Revert changes
+#
+# Examples:
+#   feat(game): add AI opponent
+#   fix(board): fix win detection bug
+#   docs(readme): update installation guide

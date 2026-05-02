@@ -1,0 +1,33 @@
+#!/bin/bash
+# Angular 规范提交信息验证 Hook
+# 格式: <type>(<scope>): <subject>
+
+COMMIT_MSG_FILE=$1
+COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
+
+# Angular 提交信息格式正则
+PATTERN="^(feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)(\(.+\))?!?: .{1,50}"
+
+if ! echo "$COMMIT_MSG" | head -1 | grep -qE "$PATTERN"; then
+    echo "错误: 提交信息不符合 Angular 规范"
+    echo ""
+    echo "正确格式: <type>(<scope>): <subject>"
+    echo ""
+    echo "type 可选值:"
+    echo "  feat     - 新功能"
+    echo "  fix      - Bug 修复"
+    echo "  docs     - 文档变更"
+    echo "  style    - 代码格式（不影响功能）"
+    echo "  refactor - 重构"
+    echo "  test     - 测试"
+    echo "  chore    - 构建/工具变更"
+    echo "  perf     - 性能优化"
+    echo "  ci       - CI 配置"
+    echo "  build    - 构建系统变更"
+    echo "  revert   - 回退"
+    echo ""
+    echo "示例: feat(game): 添加 AI 对手功能"
+    exit 1
+fi
+
+exit 0
