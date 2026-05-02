@@ -1,0 +1,159 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #0a0a0f;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    color: #e0e0e0;
+    overflow: hidden;
+}
+
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background:
+        radial-gradient(ellipse at 20% 20%, rgba(0, 150, 255, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 80%, rgba(0, 200, 255, 0.06) 0%, transparent 50%);
+    pointer-events: none;
+}
+
+h1 {
+    font-size: 2rem;
+    font-weight: 300;
+    letter-spacing: 0.3em;
+    margin-bottom: 1.5rem;
+    text-transform: uppercase;
+    color: #00d4ff;
+    text-shadow: 0 0 20px rgba(0, 212, 255, 0.5), 0 0 40px rgba(0, 212, 255, 0.3);
+}
+
+.game-container {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+#gameCanvas {
+    border-radius: 8px;
+    cursor: crosshair;
+    box-shadow:
+        0 0 30px rgba(0, 150, 255, 0.2),
+        inset 0 0 60px rgba(0, 50, 100, 0.3);
+}
+
+.info-panel {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    padding: 1rem 2rem;
+    background: rgba(20, 25, 40, 0.8);
+    border-radius: 12px;
+    border: 1px solid rgba(0, 212, 255, 0.2);
+    box-shadow: 0 0 20px rgba(0, 150, 255, 0.1);
+}
+
+.current-player {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.1rem;
+}
+
+.player-indicator {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+.player-indicator.black {
+    background: radial-gradient(circle at 35% 35%, #555, #111);
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+.player-indicator.white {
+    background: radial-gradient(circle at 35% 35%, #fff, #ccc);
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+#statusText {
+    color: #00d4ff;
+    font-weight: 500;
+}
+
+.btn {
+    padding: 0.6rem 1.5rem;
+    font-size: 0.95rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    color: #00d4ff;
+    background: transparent;
+    border: 1px solid rgba(0, 212, 255, 0.5);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    text-transform: uppercase;
+}
+
+.btn:hover {
+    background: rgba(0, 212, 255, 0.15);
+    border-color: #00d4ff;
+    box-shadow: 0 0 15px rgba(0, 212, 255, 0.3);
+}
+
+.win-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+    z-index: 100;
+}
+
+.win-overlay.show {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.win-message {
+    font-size: 3rem;
+    font-weight: 300;
+    letter-spacing: 0.2em;
+    margin-bottom: 2rem;
+    animation: glow 1.5s ease-in-out infinite alternate;
+}
+
+.win-message.black { color: #fff; text-shadow: 0 0 30px rgba(255,255,255,0.8); }
+.win-message.white { color: #eee; text-shadow: 0 0 30px rgba(200,220,255,0.8); }
+
+@keyframes glow {
+    from { text-shadow: 0 0 20px currentColor; }
+    to { text-shadow: 0 0 40px currentColor, 0 0 60px currentColor; }
+}
+
+.win-overlay .btn {
+    font-size: 1.1rem;
+    padding: 0.8rem 2rem;
+}
