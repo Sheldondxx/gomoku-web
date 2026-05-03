@@ -321,46 +321,43 @@ export class Game {
      */
     checkWin(x, y, player) {
         const directions = [
-            [[1, 0], [-1, 0]],   // 横向
-            [[0, 1], [0, -1]],   // 纵向
-            [[1, 1], [-1, -1]], // 主对角线
-            [[1, -1], [-1, 1]]  // 副对角线
+            [1, 0],    // 横向
+            [0, 1],    // 纵向
+            [1, 1],    // 主对角线
+            [1, -1]    // 副对角线
         ]
-        
-        for (const [dir1, dir2] of directions) {
-            let count = 1
-            let startX = x, startY = y
-            let endX = x, endY = y
-            
-            // 正向检查
-            let dx = dir1[0], dy = dir1[1]
-            for (let i = 1; i < 5; i++) {
-                const nx = x + dx * i
-                const ny = y + dy * i
-                if (nx >= 0 && nx < GRID_SIZE && ny >= 0 && ny < GRID_SIZE && this.board[ny][nx] === player) {
-                    count++
-                    endX = nx
-                    endY = ny
-                } else break
-            }
-            
-            // 反向检查
-            dx = dir2[0]; dy = dir2[1]
-            for (let i = 1; i < 5; i++) {
-                const nx = x + dx * i
-                const ny = y + dy * i
-                if (nx >= 0 && nx < GRID_SIZE && ny >= 0 && ny < GRID_SIZE && this.board[ny][nx] === player) {
-                    count++
-                    startX = nx
-                    startY = ny
-                } else break
-            }
-            
-            if (count >= 5) {
-                return [[startX, startY], [endX, endY]]
+
+        for (const [dx, dy] of directions) {
+            const line = this.getLineInDirection(x, y, dx, dy, player)
+            if (line && line.count >= 5) {
+                return line.bounds
             }
         }
         return null
+    }
+
+    /**
+     * 获取指定方向上的连续棋子信息
+     */
+    getLineInDirection(x, y, dx, dy, player) {
+        let start = [x, y]
+        let end = [x, y]
+        let count = 1
+
+        for (const dir of [1, -1]) {
+            let cx = x, cy = y
+            for (let i = 1; i < 5; i++) {
+                const nx = cx + dx * dir * i
+                const ny = cy + dy * dir * i
+                if (nx >= 0 && nx < GRID_SIZE && ny >= 0 && ny < GRID_SIZE && this.board[ny][nx] === player) {
+                    count++
+                    if (dir === 1) end = [nx, ny]
+                    else start = [nx, ny]
+                } else break
+            }
+        }
+
+        return count >= 5 ? { count, bounds: [start, end] } : null
     }
     
     /**
