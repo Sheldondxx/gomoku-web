@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest run",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
@@ -14,6 +14,9 @@
   "description": "A web-based Gomoku (five-in-a-row) game",
   "private": "true",
   "devDependencies": {
-    "vite": "^8.0.10"
+    "@testing-library/dom": "^10.4.1",
+    "jsdom": "^26.1.0",
+    "vite": "^8.0.10",
+    "vitest": "^3.2.4"
   }
 }
