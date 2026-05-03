@@ -208,8 +208,11 @@ export class Game {
      * 主绘制函数
      */
     draw() {
-        // 清空画布
-        this.ctx.fillStyle = '#0d1520'
+        // 根据下一步玩家颜色动态设置背景
+        const bgColor = this.currentPlayer === 1
+            ? '#0a1525'  // 黑方回合 - 深蓝色
+            : '#1a1520'  // 白方回合 - 深紫红色
+        this.ctx.fillStyle = bgColor
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
         
         // 绘制网格
