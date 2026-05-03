@@ -33,6 +33,7 @@ export class Game {
             <h1>五子棋</h1>
             <div class="game-container">
                 <canvas id="gameCanvas"></canvas>
+                <canvas id="confettiCanvas"></canvas>
                 <div class="info-panel">
                     <div class="current-player">
                         <span>当前回合:</span>
@@ -51,16 +52,30 @@ export class Game {
         // 获取DOM元素
         this.canvas = document.getElementById('gameCanvas')
         this.ctx = this.canvas.getContext('2d')
+        this.confettiCanvas = document.getElementById('confettiCanvas')
+        this.confettiCtx = this.confettiCanvas.getContext('2d')
         this.indicator = document.getElementById('playerIndicator')
         this.statusText = document.getElementById('statusText')
         this.winOverlay = document.getElementById('winOverlay')
         this.winMessage = document.getElementById('winMessage')
-        
+        this.confettiParticles = []
+        this.confettiAnimationId = null
+
         // 设置画布尺寸 - 确保能容纳整个棋盘网格
         const gridSize = (GRID_SIZE - 1) * CELL_SIZE
         const canvasSize = PADDING * 2 + gridSize
         this.canvas.width = canvasSize
         this.canvas.height = canvasSize
+
+        // 设置彩屑画布尺寸
+        this.confettiCanvas.width = window.innerWidth
+        this.confettiCanvas.height = window.innerHeight
+
+        // 监听窗口大小变化
+        window.addEventListener('resize', () => {
+            this.confettiCanvas.width = window.innerWidth
+            this.confettiCanvas.height = window.innerHeight
+        })
     }
     
     /**
@@ -72,6 +87,7 @@ export class Game {
         this.gameOver = false
         this.lastMove = null
         this.winLine = null
+        this.stopConfetti()
         this.updateUI()
         this.draw()
     }
@@ -355,6 +371,107 @@ export class Game {
         this.winMessage.textContent = `${winner}获胜!`
         this.winMessage.className = `win-message ${player === 1 ? 'black' : 'white'}`
         this.winOverlay.classList.add('show')
+        this.startConfetti()
+    }
+
+    /**
+     * 创建彩屑粒子
+     */
+    createConfettiParticle() {
+        const colors = ['#00d4ff', '#ff6b6b', '#ffd93d', '#6bcb77', '#9b59b6', '#ff9ff3', '#fff']
+        const shapes = ['circle', 'square', 'strip']
+        return {
+            x: Math.random() * this.confettiCanvas.width,
+            y: Math.random() > 0.8 ? Math.random() * this.confettiCanvas.height : -20,
+            vx: (Math.random() - 0.5) * 4,
+            vy: Math.random() * 3 + 2,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            shape: shapes[Math.floor(Math.random() * shapes.length)],
+            size: Math.random() * 8 + 4,
+            rotation: Math.random() * 360,
+            rotationSpeed: (Math.random() - 0.5) * 10,
+            opacity: 1
+        }
+    }
+
+    /**
+     * 绘制单个彩屑粒子
+     */
+    drawConfettiParticle(p) {
+        this.confettiCtx.save()
+        this.confettiCtx.translate(p.x, p.y)
+        this.confettiCtx.rotate(p.rotation * Math.PI / 180)
+        this.confettiCtx.globalAlpha = p.opacity
+        this.confettiCtx.fillStyle = p.color
+
+        if (p.shape === 'circle') {
+            this.confettiCtx.beginPath()
+            this.confettiCtx.arc(0, 0, p.size / 2, 0, Math.PI * 2)
+            this.confettiCtx.fill()
+        } else if (p.shape === 'square') {
+            this.confettiCtx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size)
+        } else {
+            this.confettiCtx.fillRect(-p.size / 4, -p.size / 2, p.size / 2, p.size)
+        }
+        this.confettiCtx.restore()
+    }
+
+    /**
+     * 更新彩屑粒子状态
+     */
+    updateConfetti() {
+        this.confettiCtx.clearRect(0, 0, this.confettiCanvas.width, this.confettiCanvas.height)
+
+        // 添加新粒子
+        if (this.confettiParticles.length < 150 && Math.random() > 0.7) {
+            this.confettiParticles.push(this.createConfettiParticle())
+        }
+
+        // 更新和绘制粒子
+        this.confettiParticles = this.confettiParticles.filter(p => {
+            p.x += p.vx
+            p.y += p.vy
+            p.vy += 0.1
+            p.rotation += p.rotationSpeed
+
+            if (p.y > this.confettiCanvas.height + 20) {
+                return false
+            }
+            this.drawConfettiParticle(p)
+            return true
+        })
+
+        if (this.confettiParticles.length > 0) {
+            this.confettiAnimationId = requestAnimationFrame(() => this.updateConfetti())
+        }
+    }
+
+    /**
+     * 开始彩屑动画
+     */
+    startConfetti() {
+        this.stopConfetti()
+        this.confettiParticles = []
+        for (let i = 0; i < 50; i++) {
+            const p = this.createConfettiParticle()
+            p.y = Math.random() * this.confettiCanvas.height
+            this.confettiParticles.push(p)
+        }
+        this.updateConfetti()
+    }
+
+    /**
+     * 停止彩屑动画
+     */
+    stopConfetti() {
+        if (this.confettiAnimationId) {
+            cancelAnimationFrame(this.confettiAnimationId)
+            this.confettiAnimationId = null
+        }
+        if (this.confettiCtx) {
+            this.confettiCtx.clearRect(0, 0, this.confettiCanvas.width, this.confettiCanvas.height)
+        }
+        this.confettiParticles = []
     }
     
     /**
