@@ -19,16 +19,27 @@ export class Game {
         this.lastMove = null
         this.winLine = null
         this.hoverPos = null
-        
-        this.initUI()
+
+        this.ctx = null
+        this.confettiCtx = null
+        this.canvas = null
+        this.confettiCanvas = null
+        this.indicator = null
+        this.statusText = null
+        this.winOverlay = null
+        this.winMessage = null
+        this.confettiParticles = []
+        this.confettiAnimationId = null
+
         this.initBoard()
-        this.bindEvents()
     }
-    
+
     /**
      * 初始化UI结构
      */
     initUI() {
+        if (!this.container) return
+
         this.container.innerHTML = `
             <h1>五子棋</h1>
             <div class="game-container">
@@ -96,6 +107,7 @@ export class Game {
      * 更新界面显示
      */
     updateUI() {
+        if (!this.indicator) return
         this.indicator.className = `player-indicator ${this.currentPlayer === 1 ? 'black' : 'white'}`
         this.statusText.textContent = this.currentPlayer === 1 ? '黑方' : '白方'
         this.winOverlay.classList.remove('show')
@@ -224,6 +236,8 @@ export class Game {
      * 主绘制函数
      */
     draw() {
+        if (!this.ctx) return
+
         // 根据下一步玩家颜色动态设置背景
         const bgColor = this.currentPlayer === 1
             ? '#0a1525'  // 黑方回合 - 深蓝色
