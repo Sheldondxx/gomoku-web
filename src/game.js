@@ -4,7 +4,7 @@
  */
 const GRID_SIZE = 15          // 棋盘格数
 const CELL_SIZE = 36          // 每格像素大小
-const PIECE_RADIUS = 15       // 棋子半径
+const PIECE_RADIUS = 13       // 棋子半径
 const PADDING = 30            // 棋盘边距
 
 /**
