@@ -56,8 +56,9 @@ export class Game {
         this.winOverlay = document.getElementById('winOverlay')
         this.winMessage = document.getElementById('winMessage')
         
-        // 设置画布尺寸
-        const canvasSize = PADDING * 2 + (GRID_SIZE - 1) * CELL_SIZE
+        // 设置画布尺寸 - 确保能容纳整个棋盘网格
+        const gridSize = (GRID_SIZE - 1) * CELL_SIZE
+        const canvasSize = PADDING * 2 + gridSize
         this.canvas.width = canvasSize
         this.canvas.height = canvasSize
     }
