@@ -211,7 +211,7 @@ export class Game {
         // 根据下一步玩家颜色动态设置背景
         const bgColor = this.currentPlayer === 1
             ? '#0a1525'  // 黑方回合 - 深蓝色
-            : '#1a1520'  // 白方回合 - 深紫红色
+            : '#1e2535'  // 白方回合 - 更亮的背景
         this.ctx.fillStyle = bgColor
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
         
