@@ -1,5 +1,45 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { Game } from './game.js'
+
+HTMLCanvasElement.prototype.getContext = () => ({
+  fillRect: () => {},
+  clearRect: () => {},
+  getImageData: () => ({ data: [] }),
+  putImageData: () => {},
+  createImageData: () => [],
+  setTransform: () => {},
+  drawImage: () => {},
+  save: () => {},
+  restore: () => {},
+  beginPath: () => {},
+  moveTo: () => {},
+  lineTo: () => {},
+  closePath: () => {},
+  stroke: () => {},
+  fill: () => {},
+  translate: () => {},
+  scale: () => {},
+  rotate: () => {},
+  arc: () => {},
+  fillRect: () => {},
+  clearRect: () => {},
+  strokeRect: () => {},
+  fillText: () => {},
+  measureText: () => ({ width: 0 }),
+  createRadialGradient: () => ({
+    addColorStop: () => {}
+  }),
+  createLinearGradient: () => ({
+    addColorStop: () => {}
+  })
+})
+
+HTMLCanvasElement.prototype.getBoundingClientRect = () => ({
+  left: 0,
+  top: 0,
+  width: 600,
+  height: 600
+})
 
 describe('游戏逻辑测试', () => {
   let game
@@ -7,7 +47,22 @@ describe('游戏逻辑测试', () => {
 
   beforeEach(() => {
     container = document.createElement('div')
+    document.body.appendChild(container)
+
+    const canvas = document.createElement('canvas')
+    canvas.id = 'gameCanvas'
+    canvas.width = 600
+    canvas.height = 600
+    const confettiCanvas = document.createElement('canvas')
+    confettiCanvas.id = 'confettiCanvas'
+    confettiCanvas.width = 800
+    confettiCanvas.height = 600
+    container.appendChild(canvas)
+    container.appendChild(confettiCanvas)
+
     game = new Game(container)
+    game.initUI()
+    game.bindEvents()
   })
 
   describe('落子正确更新棋盘状态', () => {
@@ -141,7 +196,22 @@ describe('UI交互测试', () => {
 
   beforeEach(() => {
     container = document.createElement('div')
+    document.body.appendChild(container)
+
+    const canvas = document.createElement('canvas')
+    canvas.id = 'gameCanvas'
+    canvas.width = 600
+    canvas.height = 600
+    const confettiCanvas = document.createElement('canvas')
+    confettiCanvas.id = 'confettiCanvas'
+    confettiCanvas.width = 800
+    confettiCanvas.height = 600
+    container.appendChild(canvas)
+    container.appendChild(confettiCanvas)
+
     game = new Game(container)
+    game.initUI()
+    game.bindEvents()
   })
 
   describe('点击落子触发正确回调', () => {
