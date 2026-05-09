@@ -1,0 +1,215 @@
+name: Claude Fix Issue
+
+on:
+  issues:
+    types: [labeled]
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.issue.number || github.event.comment.issue_number }}
+  cancel-in-progress: false
+
+jobs:
+  fix:
+    # 触发条件：标签为 'claude-fix' 或评论包含 '/claude-fix'
+    if: |
+      (github.event_name == 'issues' && github.event.label.name == 'claude-fix') ||
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/claude-fix'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: read
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Get Issue Info
+        id: issue
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ github.event_name }}" = "issues" ]; then
+            ISSUE_NUM=${{ github.event.issue.number }}
+            ISSUE_TITLE="${{ github.event.issue.title }}"
+            ISSUE_BODY="${{ github.event.issue.body }}"
+          else
+            ISSUE_NUM=${{ github.event.issue.number }}
+            ISSUE_TITLE="${{ github.event.issue.title }}"
+            ISSUE_BODY="${{ github.event.issue.body }}"
+          fi
+
+          # 清理多行字符串以适应 GITHUB_OUTPUT
+          echo "number=$ISSUE_NUM" >> $GITHUB_OUTPUT
+          echo "title<<EOF" >> $GITHUB_OUTPUT
+          echo "$ISSUE_TITLE" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "body<<EOF" >> $GITHUB_OUTPUT
+          echo "$ISSUE_BODY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create Fix Branch
+        id: branch
+        run: |
+          BRANCH_NAME="claude-fix-issue-${{ steps.issue.outputs.number }}-$(date +%s)"
+          git checkout -b "$BRANCH_NAME"
+          echo "name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
+      - name: Run Claude Code to Fix Issue
+        env:
+          # ===== MiniMax 配置 =====
+          # Anthropic Base URL:
+          #   国际用户: https://api.minimax.io/anthropic
+          #   国内用户: https://api.minimaxi.com/anthropic
+          # 注意: MiniMax 原生支持 Anthropic API 格式，Claude Code 可直接使用
+          # API Key: 从 https://platform.minimax.io 获取
+          # 推荐模型: MiniMax-M2.7 (最强代码/Agent能力)
+          # 备选模型: MiniMax-M2.5 / MiniMax-M2.1 / MiniMax-M2
+          ANTHROPIC_BASE_URL: ${{ secrets.CLAUDE_BASE_URL }}
+          ANTHROPIC_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
+          ANTHROPIC_MODEL: ${{ secrets.CLAUDE_MODEL }}
+          # =========================
+          ISSUE_NUMBER: ${{ steps.issue.outputs.number }}
+          ISSUE_TITLE: ${{ steps.issue.outputs.title }}
+          ISSUE_BODY: ${{ steps.issue.outputs.body }}
+        run: |
+          cat > /tmp/fix_prompt.txt << 'PROMPT_EOF'
+          You are an expert software engineer. Your task is to fix a reported issue in this repository.
+
+          Rules:
+          1. First read and understand the issue description
+          2. Explore the relevant source files to understand the codebase
+          3. Implement the minimal fix required
+          4. Run tests if they exist (`npm test` or equivalent)
+          5. If tests fail, iterate until they pass
+          6. Do NOT change unrelated code
+          7. Do NOT modify configuration files unless necessary
+          8. Keep changes focused and minimal
+          PROMPT_EOF
+
+          cat > /tmp/issue_info.txt << EOF
+          Issue #$ISSUE_NUMBER: $ISSUE_TITLE
+
+          $ISSUE_BODY
+          EOF
+
+          claude -p --bare \
+            --max-turns 30 \
+            --max-budget-usd 5.00 \
+            --allowedTools "Read,Edit,Bash(git *),Bash(npm *),Bash(node *),Bash(vite *),Bash(npx *)" \
+            --append-system-prompt-file /tmp/fix_prompt.txt \
+            "Fix the following issue. Read the issue description from /tmp/issue_info.txt first, then explore the codebase and implement the fix. Run tests to verify." \
+            > /tmp/fix_output.txt 2>/tmp/fix_stderr.txt
+
+          FIX_EXIT=$?
+          cat /tmp/fix_output.txt
+
+          if [ $FIX_EXIT -ne 0 ]; then
+            echo "Warning: Claude Code exited with code $FIX_EXIT"
+            cat /tmp/fix_stderr.txt || true
+          fi
+
+          # 检查是否有文件变更
+          if git diff --quiet; then
+            echo "No changes made by Claude Code."
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "Changes detected."
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+        id: claude_fix
+
+      - name: Commit and Push Changes
+        if: steps.claude_fix.outputs.has_changes == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git add -A
+          git commit -m "fix: resolve issue #${{ steps.issue.outputs.number }} - ${{ steps.issue.outputs.title }}
+
+          Automated fix by Claude Code.
+
+          Ref: #${{ steps.issue.outputs.number }}"
+          git push origin ${{ steps.branch.outputs.name }}
+
+      - name: Create Pull Request
+        if: steps.claude_fix.outputs.has_changes == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ steps.issue.outputs.number }}
+          ISSUE_TITLE: ${{ steps.issue.outputs.title }}
+        run: |
+          cat > /tmp/pr_body.txt << EOF
+          ## 🤖 Automated Fix for Issue #$ISSUE_NUMBER
+
+          This PR was automatically generated by Claude Code to resolve issue #$ISSUE_NUMBER.
+
+          ### Issue
+          **$ISSUE_TITLE**
+
+          ### Changes Made
+          Please review the changes carefully. The fix was generated by AI and should be validated by a human before merging.
+
+          ### How to Review
+          1. Check that the fix addresses the reported issue
+          2. Verify no unrelated changes were made
+          3. Run tests locally to confirm
+          4. Check for security implications
+
+          ---
+          *Generated by [Claude Code](https://claude.ai/code) via GitHub Actions*
+          EOF
+
+          PR_BODY=$(cat /tmp/pr_body.txt | jq -Rs '.')
+
+          curl -s -X POST \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            -d "{
+              \"title\": \"fix: resolve issue #$ISSUE_NUMBER - $ISSUE_TITLE\",
+              \"body\": $PR_BODY,
+              \"head\": \"${{ steps.branch.outputs.name }}\",
+              \"base\": \"main\"
+            }" \
+            "https://api.github.com/repos/${{ github.repository }}/pulls" > /tmp/pr_response.json
+
+          cat /tmp/pr_response.json
+          PR_URL=$(cat /tmp/pr_response.json | jq -r '.html_url // empty')
+
+          if [ -n "$PR_URL" ]; then
+            # 在 issue 中评论
+            curl -s -X POST \
+              -H "Authorization: token $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github.v3+json" \
+              -d "{\"body\":\"🤖 Claude Code has created a fix: $PR_URL\\n\\nPlease review the PR carefully before merging.\"}" \
+              "https://api.github.com/repos/${{ github.repository }}/issues/$ISSUE_NUMBER/comments"
+          fi
+
+      - name: Comment on Issue (No Changes)
+        if: steps.claude_fix.outputs.has_changes == 'false'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ steps.issue.outputs.number }}
+        run: |
+          curl -s -X POST \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            -d "{\"body\":\"🤖 Claude Code attempted to fix this issue but no changes were made.\\n\\nThis may mean:\\n- The issue requires more context or clarification\\n- The fix is not straightforward\\n- Please provide more details and try again with \\\"/claude-fix\\\"\"}" \
+            "https://api.github.com/repos/${{ github.repository }}/issues/$ISSUE_NUMBER/comments"

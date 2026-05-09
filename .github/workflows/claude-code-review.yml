@@ -1,0 +1,121 @@
+name: Claude Code PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+    branches: [main, master]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Get PR Diff
+        id: diff
+        run: |
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git diff origin/${{ github.event.pull_request.base.ref }}...HEAD > /tmp/pr_diff.txt
+          echo "diff_size=$(wc -c < /tmp/pr_diff.txt)" >> $GITHUB_OUTPUT
+
+      - name: Run Claude Code Review
+        if: steps.diff.outputs.diff_size != '0'
+        env:
+          # ===== MiniMax 配置 =====
+          # Anthropic Base URL:
+          #   国际用户: https://api.minimax.io/anthropic
+          #   国内用户: https://api.minimaxi.com/anthropic
+          # 注意: MiniMax 原生支持 Anthropic API 格式，Claude Code 可直接使用
+          # API Key: 从 https://platform.minimax.io 获取
+          # 推荐模型: MiniMax-M2.7 (最强代码/Agent能力)
+          # 备选模型: MiniMax-M2.5 / MiniMax-M2.1 / MiniMax-M2
+          ANTHROPIC_BASE_URL: ${{ secrets.CLAUDE_BASE_URL }}
+          ANTHROPIC_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
+          ANTHROPIC_MODEL: ${{ secrets.CLAUDE_MODEL }}
+          # =========================
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          # 如果 diff 太大，截断以避免 token 超限
+          DIFF_CONTENT=$(cat /tmp/pr_diff.txt)
+          DIFF_LEN=${#DIFF_CONTENT}
+          if [ $DIFF_LEN -gt 30000 ]; then
+            DIFF_CONTENT="${DIFF_CONTENT:0:30000}\n\n[Diff truncated: too large for full review]"
+          fi
+
+          # 写入提示文件
+          cat > /tmp/review_prompt.txt << 'PROMPT_EOF'
+          You are an expert code reviewer. Review the following pull request diff and provide structured feedback.
+
+          Requirements:
+          1. Focus on bugs, security issues, performance problems, and maintainability concerns
+          2. Skip trivial style issues (assume linters handle those)
+          3. Be concise and actionable
+          4. If no significant issues found, briefly confirm LGTM
+
+          Output format (strict markdown):
+          ## Summary
+          Brief summary of what this PR changes.
+
+          ## Issues Found
+          - **Severity: [High/Medium/Low]** File:Line - Description and suggested fix
+
+          ## Suggestions (max 3, only significant ones)
+          - Suggestion with rationale
+
+          ## Verdict
+          LGTM / Needs changes / Needs discussion
+          PROMPT_EOF
+
+          echo "$DIFF_CONTENT" | claude -p --bare \
+            --max-turns 10 \
+            --max-budget-usd 2.00 \
+            --allowedTools "Read,Bash(git diff *),Bash(git log *)" \
+            --append-system-prompt-file /tmp/review_prompt.txt \
+            "Review this PR diff. Read the changed files for full context if needed. Post your review as a single structured comment." \
+            > /tmp/review_output.txt 2>/tmp/review_stderr.txt
+
+          REVIEW_EXIT=$?
+
+          if [ $REVIEW_EXIT -ne 0 ]; then
+            echo "Claude Code exited with code $REVIEW_EXIT"
+            echo "stderr:"
+            cat /tmp/review_stderr.txt
+            # 即使失败也尝试输出内容
+          fi
+
+          cat /tmp/review_output.txt
+
+          # 发布评论到 PR
+          COMMENT_BODY=$(cat /tmp/review_output.txt | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
+          if [ -z "$COMMENT_BODY" ]; then
+            COMMENT_BODY="🤖 Claude Code review completed but produced no output. Check workflow logs."
+          fi
+
+          curl -s -X POST \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            -d "{\"body\":\"## 🤖 Automated Code Review by Claude Code\\n\\n$COMMENT_BODY\"}" \
+            "https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments"
